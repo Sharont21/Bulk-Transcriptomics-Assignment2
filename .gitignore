@@ -1,0 +1,25 @@
+# raw data
+*.fastq
+*.fastq.gz
+*.fq
+*.sra
+
+# salmon output
+salmon/
+quant/
+*.sf
+
+# large reference files
+*.fa
+*.fasta
+*.gtf
+
+# R clutter
+.Rhistory
+.RData
+.Rproj.user
+
+# cluster logs
+*.out
+*.err
+slurm-*
