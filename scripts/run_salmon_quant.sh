@@ -30,7 +30,7 @@ for SRR in "${SRR_LIST[@]}"; do
   echo "Quantifying $SRR"
   salmon quant \
     -i $INDEX_DIR \
-    -l A \
+    -l U \
     -r $FASTQ_DIR/${SRR}_1.fastq \
     -p 4 \
     --validateMappings \
