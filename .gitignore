@@ -5,9 +5,9 @@
 *.sra
 
 # salmon output
-#salmon/
-#quant/
-#*.sf
+salmon/
+quant/
+*.sf
 
 # large reference files
 *.fa
