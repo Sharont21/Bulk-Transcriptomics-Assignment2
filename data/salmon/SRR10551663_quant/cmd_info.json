@@ -1,0 +1,10 @@
+{
+    "salmon_version": "1.10.2",
+    "index": "/home/sharont/Bulk-Transcriptomics-Assignment2/data/reference/salmon_index",
+    "libType": "U",
+    "unmatedReads": "/home/sharont/Bulk-Transcriptomics-Assignment2/data/fastq/SRR10551663_1.fastq",
+    "threads": "4",
+    "validateMappings": [],
+    "output": "/home/sharont/Bulk-Transcriptomics-Assignment2/data/salmon/SRR10551663_quant",
+    "auxDir": "aux_info"
+}

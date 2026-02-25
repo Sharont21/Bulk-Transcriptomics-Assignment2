@@ -1,0 +1,22 @@
+{
+    "read_files": "[ /home/sharont/Bulk-Transcriptomics-Assignment2/data/fastq/SRR10551664_1.fastq ]",
+    "expected_format": "U",
+    "compatible_fragment_ratio": 1.0,
+    "num_compatible_fragments": 2391381,
+    "num_assigned_fragments": 2391381,
+    "num_frags_with_concordant_consistent_mappings": 2423550,
+    "num_frags_with_inconsistent_or_orphan_mappings": 0,
+    "strand_mapping_bias": 0.5138850034040973,
+    "MSF": 0,
+    "OSF": 0,
+    "ISF": 0,
+    "MSR": 0,
+    "OSR": 0,
+    "ISR": 0,
+    "SF": 1245426,
+    "SR": 1178124,
+    "MU": 0,
+    "OU": 0,
+    "IU": 0,
+    "U": 0
+}
