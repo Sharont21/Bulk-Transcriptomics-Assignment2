@@ -13,6 +13,11 @@ Several pseudoalignment-based RNA-seq quantification tools were considered for t
 
 For differential expression analysis (DEA), DESeq2 was selected over edgeR despite both being widely used and well-established Bioconductor packages for analyzing count-based sequencing data, including RNA-seq, SAGE-seq, ChIP-seq, and Hi-C datasets [8]. Both tools implement normalization strategies that have been shown to outperform alternative methods, particularly in scenarios where RNA composition varies substantially across biological conditions or when highly expressed genes are present [8]. However, benchmarking studies have demonstrated that as sample sizes increase, DESeq2 performs slightly better than many competing approaches in terms of statistical power and false discovery rate (FDR) control [9]. Specifically, for RNA-seq count data following either negative binomial or log-normal distributions, DESeq2 exhibits strong FDR control, improved power, and greater stability across varying sample sizes compared to alternative methods [9]. While other approaches such as EBSeq may be advantageous in very small sample size settings, DESeq2 is recommended for experiments with moderate or larger group sizes and remains one of the most robust and statistically reliable frameworks for RNA-seq differential expression analysis [9]. Based on its demonstrated performance, statistical rigor, and widespread validation across transcriptomic studies, DESeq2 was chosen as the most appropriate method for differential expression analysis in this study [8,9].
 
+# Methods
+
+# Results
+
+# Discussion
 
 
 # References
