@@ -90,21 +90,69 @@ The comparison of Stage3 vs Stage1 identified 3,154 significantly differentially
 In Stage3 vs Stage2, 2,202 genes were significantly differentially expressed, including 1,086 upregulated and 1,116 downregulated genes (Figure 2C), demonstrating continued transcriptional remodeling between the thin and mature biofilm stages.
 Across all comparisons, significant genes were distributed across a broad range of effect sizes, with both moderate and large magnitude log2 fold changes observed. The volcano plots illustrate the magnitude and statistical significance of gene expression changes underlying stage-dependent biofilm development.
 
+## Heatmap Analysis of Top Differentially Expressed Genes
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ac1e4f47-bf2c-4301-8218-b217dded7d16" width="32%" />
+  <img src="https://github.com/user-attachments/assets/3a75095d-d951-4b37-8b5b-cf28d15bbf20" width="32%" />
+  <img src="https://github.com/user-attachments/assets/0411e474-afc7-427b-8d02-50dbb270e0c1" width="32%" />
+</p>
+
+**Figure 3. Heatmaps of the top 20 differentially expressed genes across developmental stages.** 
+Variance-stabilized counts (VST) were obtained using DESeq2 (blind = FALSE) and the top 20 genes ranked by adjusted p-value (Benjamini–Hochberg, padj < 0.05) were selected for each pairwise comparison: Stage2 vs Stage1 (top), Stage3 vs Stage1 (middle), and Stage3 vs Stage2 (bottom). Expression values were Z-score scaled on a per-gene basis to emphasize relative changes across samples. Hierarchical clustering was applied to both genes (rows) and samples (columns).
+Color scale represents relative expression (red = higher expression; blue = lower expression relative to gene mean). Sample annotations indicate biological replicates and developmental stage. Distinct clustering of samples by stage and coordinated expression patterns highlight strong stage-dependent transcriptional remodeling during biofilm maturation.
+
+To further characterize transcriptional changes between developmental stages, heatmaps were generated using the top 20 differentially expressed genes for each pairwise comparison. Variance-stabilized expression values were Z-score scaled to visualize relative expression patterns across samples.
+In the Stage2 vs Stage1 comparison (Figure 3A), samples clustered cleanly by condition, indicating high reproducibility among biological replicates. The majority of top-ranked genes exhibited higher expression in Stage1 and were repressed in Stage2, while a smaller subset displayed the opposite trend. This pattern suggests substantial transcriptional reprogramming during the transition from early to intermediate biofilm development.
+The Stage3 vs Stage1 comparison revealed even stronger segregation between conditions (Figure 3B). Stage3 samples formed a distinct cluster and frequently exhibited expression patterns opposite to those observed in Stage1. Notably, Stage2 samples often displayed intermediate expression levels for many genes, consistent with a progressive and directional transcriptional trajectory across development rather than abrupt shifts.
+Similarly, the Stage3 vs Stage2 heatmap demonstrated continued remodeling between later stages (Figure 3C). Distinct gene subsets showed progressive upregulation or downregulation from Stage2 to Stage3, confirming that transcriptional dynamics persist beyond the early developmental transition.
+Across all comparisons, hierarchical clustering consistently grouped samples according to developmental stage, further supporting the robustness of stage-specific transcriptional programs. 
+
 ## Stage-Dependent Expression Patterns Identified by Likelihood Ratio Test
 
 <p align="center">
   <img width="3000" height="2100" alt="GO_Clusters_Combined" src="https://github.com/user-attachments/assets/65f6a7ed-e245-4dfe-9d6f-09f4242faf1d" />
 </p>
 
-**Figure 3. Gene Ontology (GO) Biological Process enrichment across LRT-derived gene expression clusters.**
+**Figure 4. Gene Ontology (GO) Biological Process enrichment across LRT-derived gene expression clusters.**
 Genes exhibiting significant stage-dependent expression patterns identified by likelihood ratio test (LRT; adjusted p-value < 0.05) were grouped into four clusters using k-means clustering (k = 4). Over-representation analysis of GO Biological Process terms was performed for each cluster using clusterProfiler. Dot size represents gene ratio, and color indicates adjusted p-value (Benjamini–Hochberg correction)
 
 To identify genes exhibiting significant expression changes across all developmental stages, a likelihood ratio test (LRT) was performed using a reduced model (~1) to test for stage-dependent effects. A total of 3,900 genes were identified as significantly regulated across stages (adjusted p-value < 0.05).
-Variance-stabilized expression values for LRT-significant genes were Z-score scaled and subjected to k-means clustering (k = 4), resulting in four distinct expression patterns comprising 728, 1,310, 851, and 1,011 genes, respectively. These clusters represented coordinated transcriptional trajectories across biofilm development.
+Variance-stabilized expression values for LRT-significant genes were Z-score scaled and subjected to k-means clustering (k = 4), resulting in four distinct expression patterns comprising 728, 1,310, 851, and 1,011 genes, respectively. These clusters represented distinct stage-dependent transcriptional trajectories across biofilm development.
 Functional enrichment analysis of each cluster revealed distinct biological process associations (Figure 4). Cluster 1 was enriched for translation- and ribosome-related processes, including cytoplasmic translation and ribosome biogenesis. Cluster 2 was enriched for lipid metabolic and biosynthetic processes. Cluster 3 was associated with regulatory processes, including RNA metabolic regulation and mRNA decapping. Cluster 4 showed enrichment for mitochondrial-related processes, including mitochondrial translation, mitochondrial gene expression, and mitochondrial organization.
 These results indicate that genes exhibiting coordinated stage-dependent expression patterns are functionally organized into distinct biological programs during biofilm development.
 
+## KEGG Pathway-Level Remodeling Across Biofilm Development
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b8645daa-b39c-4916-bede-2e34da948a66", width="32%" />
+  <img src="https://github.com/user-attachments/assets/a9ecbcac-5fbc-486d-96b9-e0f6bb0c77f6", width="32%" />
+  <img src="https://github.com/user-attachments/assets/d2e8b573-1302-45ba-a543-da659119cd5c", width="32%" />
+</p>
+
+**Figure 5. KEGG pathway enrichment analysis using gene set enrichment analysis (GSEA).**
+KEGG pathways significantly enriched (FDR < 0.05) in Stage2 vs Stage1, Stage3 vs Stage1, and Stage3 vs Stage2 comparisons. Dot size represents the number of genes contributing to pathway enrichment, and color indicates adjusted p-value. Positive normalized enrichment scores (NES) indicate enrichment in the later stage of each comparison, while negative NES values indicate enrichment in the earlier stage.
+
+Gene set enrichment analysis (GSEA) using KEGG pathway annotations identified significant pathway-level shifts across developmental stages. A total of 13, 16, and 24 KEGG pathways were significantly enriched (adjusted p-value < 0.05) in Stage2 vs Stage1, Stage3 vs Stage1, and Stage3 vs Stage2 comparisons, respectively (Figure 5).
+During the transition from Stage1 to Stage2, metabolic pathways including fatty acid metabolism and pyruvate metabolism were significantly enriched in Stage2, while proteasome and carbohydrate-related pathways were relatively enriched in Stage1. Comparison of Stage3 to Stage1 revealed strong repression of the ribosome pathway in Stage3 (NES = -2.26), accompanied by enrichment of glycolysis, steroid biosynthesis, and fatty acid metabolism pathways.
+The most pronounced pathway-level changes were observed between Stage3 and Stage2. The ribosome pathway exhibited strong negative enrichment (NES = -3.29), indicating marked suppression of translational machinery in mature biofilm. Concurrently, pathways associated with lipid biosynthesis, autophagy, and inositol phosphate metabolism were positively enriched, suggesting coordinated metabolic and stress-response remodeling during biofilm maturation.
+Together, these results indicate progressive suppression of translational programs and activation of metabolic and stress-associated pathways during biofilm development.
+
+## KEGG GSEA Reveals Suppression of Translation in Late-Stage Biofilm
+
+<p align="center>
+  <img width="2400" height="1800" alt="GSEA_KEGG_stage3_vs_stage1_curve" src="https://github.com/user-attachments/assets/e3fc4523-bd24-4cef-8ec3-d221b5b95474" />
+<img width="2400" height="1800" alt="GSEA_KEGG_stage3_vs_stage1_curve" src="https://github.com/user-attachments/assets/e3fc4523-bd24-4cef-8ec3-d221b5b95474" />
+</p>
+
+**Figure 6. Gene Set Enrichment Analysis (GSEA) enrichment plot for the Ribosome pathway (Stage3 vs Stage1)**.
+Genes were ranked according to the DESeq2 Wald statistic from the Stage3 vs Stage1 comparison and analyzed using KEGG GSEA. The running enrichment score (green curve) reflects the cumulative enrichment of ribosome-associated genes across the ranked list. Vertical black bars indicate the positions of ribosomal genes within the ordered dataset. The color bar represents the ranked gene-level statistic (red = genes upregulated in Stage3; blue = genes upregulated in Stage1). The negative normalized enrichment score (NES = −2.26, adjusted p-value < 1e-7) indicates significant enrichment of ribosome genes among genes more highly expressed in Stage1 relative to Stage3.
+
+To identify coordinated pathway-level changes during biofilm maturation, Gene Set Enrichment Analysis (GSEA) was performed using KEGG pathway annotations. Genes were ranked according to their differential expression statistics from the Stage3 vs Stage1 comparison.
+The Ribosome pathway was strongly and significantly negatively enriched (NES = −2.26, adjusted p-value < 1e-7), indicating that ribosomal genes are disproportionately represented among genes more highly expressed in Stage1. The running enrichment score exhibited a pronounced negative deviation, with the majority of ribosomal genes clustering toward the lower end of the ranked list (Figure 6). This pattern demonstrates coordinated downregulation of translation-related genes in Stage3 relative to Stage1.
+The distribution of gene hits along the ranked list further supports this conclusion, as ribosomal genes are concentrated in the region corresponding to Stage1-enriched transcripts. Together, these findings indicate a marked reduction in translational machinery activity during progression to the late biofilm stage.
+This pathway-level repression of translation is consistent with earlier GO enrichment analyses, which identified ribosome biogenesis and cytoplasmic translation as overrepresented biological processes among early-stage clusters. Moreover, heatmap visualization of top differentially expressed genes similarly demonstrated reduced expression of translation-associated genes in Stage3.
+Collectively, these results suggest that biofilm maturation is accompanied by a coordinated shift away from active protein synthesis, potentially reflecting reduced proliferative activity and metabolic reprogramming during late-stage development.
 
 # Discussion
 
