@@ -90,6 +90,19 @@ The comparison of Stage3 vs Stage1 identified 3,154 significantly differentially
 In Stage3 vs Stage2, 2,202 genes were significantly differentially expressed, including 1,086 upregulated and 1,116 downregulated genes (Figure 2C), demonstrating continued transcriptional remodeling between the thin and mature biofilm stages.
 Across all comparisons, significant genes were distributed across a broad range of effect sizes, with both moderate and large magnitude log2 fold changes observed. The volcano plots illustrate the magnitude and statistical significance of gene expression changes underlying stage-dependent biofilm development.
 
+## Stage-Dependent Expression Patterns Identified by Likelihood Ratio Test
+
+<p align="center">
+  <img width="3000" height="2100" alt="GO_Clusters_Combined" src="https://github.com/user-attachments/assets/65f6a7ed-e245-4dfe-9d6f-09f4242faf1d" />
+</p>
+
+**Figure 3. Gene Ontology (GO) Biological Process enrichment across LRT-derived gene expression clusters.**
+Genes exhibiting significant stage-dependent expression patterns identified by likelihood ratio test (LRT; adjusted p-value < 0.05) were grouped into four clusters using k-means clustering (k = 4). Over-representation analysis of GO Biological Process terms was performed for each cluster using clusterProfiler. Dot size represents gene ratio, and color indicates adjusted p-value (Benjamini–Hochberg correction)
+
+To identify genes exhibiting significant expression changes across all developmental stages, a likelihood ratio test (LRT) was performed using a reduced model (~1) to test for stage-dependent effects. A total of 3,900 genes were identified as significantly regulated across stages (adjusted p-value < 0.05).
+Variance-stabilized expression values for LRT-significant genes were Z-score scaled and subjected to k-means clustering (k = 4), resulting in four distinct expression patterns comprising 728, 1,310, 851, and 1,011 genes, respectively. These clusters represented coordinated transcriptional trajectories across biofilm development.
+Functional enrichment analysis of each cluster revealed distinct biological process associations (Figure 4). Cluster 1 was enriched for translation- and ribosome-related processes, including cytoplasmic translation and ribosome biogenesis. Cluster 2 was enriched for lipid metabolic and biosynthetic processes. Cluster 3 was associated with regulatory processes, including RNA metabolic regulation and mRNA decapping. Cluster 4 showed enrichment for mitochondrial-related processes, including mitochondrial translation, mitochondrial gene expression, and mitochondrial organization.
+These results indicate that genes exhibiting coordinated stage-dependent expression patterns are functionally organized into distinct biological programs during biofilm development.
 
 
 
