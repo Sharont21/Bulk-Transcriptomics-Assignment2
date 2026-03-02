@@ -1,0 +1,942 @@
+---
+name: "Sharon Tsukernik"
+title: "Assignment_02"
+output: pdf_document
+date: "2026-02-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Install libraries if they are not installed
+
+#install.packages("tximport")
+#install.packages("pheatmap")
+
+
+#install.packages("BiocManager")
+
+#BiocManager::install("DESeq2")
+#BiocManager::install("tximport")
+#BiocManager::install("apeglm")
+#BiocManager::install("clusterProfiler")
+#BiocManager::install("org.Sc.sgd.db")
+#BiocManager::install("AnnotationDbi")
+#BiocManager::install("enrichplot")
+```
+
+
+```{r}
+# Load libraries
+library(tximport)
+library(readr)
+library(DESeq2)
+library(Biostrings)
+library(apeglm)
+library(ggplot2)
+library(pheatmap)
+library(clusterProfiler)
+library(org.Sc.sgd.db)
+library(dplyr)
+library(AnnotationDbi)
+library(enrichplot)
+library(tidyverse)
+
+```
+
+```{r}
+# Creating sample metadata table
+samples <- data.frame(
+  sample = c(
+    "SRR10551657","SRR10551658","SRR10551659",
+    "SRR10551660","SRR10551661","SRR10551662",
+    "SRR10551663","SRR10551664","SRR10551665"
+  ),
+  condition = factor(c(
+    "Stage1","Stage1","Stage1",
+    "Stage2","Stage2","Stage2",
+    "Stage3","Stage3","Stage3"
+  ))
+)
+
+samples
+
+```
+
+```{r}
+
+# creating file paths to Salmon quant.sf files and checking if they exist 
+files <- file.path(
+  "data/salmon",
+  paste0(samples$sample, "_quant"),
+  "quant.sf"
+)
+
+file.exists(files)
+```
+```{r}
+# Creating directory for reference files
+dir.create("data/reference", recursive = TRUE, showWarnings = FALSE)
+
+download.file(
+  url = "https://ftp.ensembl.org/pub/release-110/fasta/saccharomyces_cerevisiae/cdna/Saccharomyces_cerevisiae.R64-1-1.cdna.all.fa.gz",
+  destfile = "data/reference/sc_cdna.fa.gz",
+  mode = "wb"
+)
+
+R.utils::gunzip(
+  "data/reference/sc_cdna.fa.gz",
+  remove = FALSE
+)
+
+```
+
+
+```{r}
+# Reading reference transcriptome FASTA file
+fasta <- readDNAStringSet(
+  "data/reference/sc_cdna.fa")
+
+# Extracting transcript and gene IDs from headers
+tx_ids <- names(fasta)
+gene_ids <- sub(".*gene:([^ ]+).*", "\\1", tx_ids)
+tx_ids_clean <- sub(" .*", "", tx_ids)
+
+# Creating transcript-to-gene mapping for tximport
+tx2gene <- data.frame(
+  TXNAME = tx_ids_clean,
+  GENEID = gene_ids,
+  stringsAsFactors = FALSE
+)
+
+
+head(tx2gene)
+
+```
+
+
+```{r}
+# Importing Salmon quantification files and summarizing to gene-level counts
+txi <- tximport(
+  files,
+  type = "salmon",
+  tx2gene = tx2gene,
+  ignoreTxVersion = TRUE
+)
+
+# Checking dimensions of matrix
+dim(txi$counts)
+
+```
+```{r}
+# Creating DESeq2 sataset
+dds <- DESeqDataSetFromTximport(
+  txi = txi,
+  colData = samples,
+  design = ~ condition
+)
+
+dds
+
+# Filtering out low-count genes
+dds<- dds[rowSums(counts(dds)) >= 10, ]
+
+# Running DESeq2 differential expression pipeline
+dds <- DESeq(dds)
+
+# Variance stabilizing transformation
+vsd <- vst(dds, blind = FALSE)
+
+# Performing PCA
+plotPCA(vsd, intgroup = "condition")
+
+# Checking numbers
+pca <- plotPCA(vsd, intgroup="condition", returnData=TRUE)
+attr(pca, "percentVar")
+
+
+
+```
+```{r}
+levels(dds$condition)
+
+# Defining pairwise contrasts
+contrasts_list <- list(
+  S2_vs_S1 = c("condition", "Stage2", "Stage1"),
+  S3_vs_S2 = c("condition", "Stage3", "Stage2"),
+  S3_vs_S1 = c("condition", "Stage3", "Stage1")
+)
+
+# Running differential expression for each contrast
+results_list <- list()
+
+for (name in names(contrasts_list)) {
+  
+  res <- results(dds, contrast = contrasts_list[[name]])
+  res <- res[order(res$padj), ]
+  
+  results_list[[name]] <- res
+  
+  # Printing number of significant genes
+  cat(name, "significant genes:",
+      sum(res$padj < 0.05, na.rm = TRUE), "\n")
+  
+  # save results
+  write.csv(as.data.frame(res),
+            paste0("results_", name, ".csv"))
+}
+
+```
+
+```{r}
+# Volcano Plots
+
+# Shrinkage for Stage2 vs Stage1 comparison
+res_S2_vs_S1_shrunk <- lfcShrink(
+  dds,
+  coef = "condition_Stage2_vs_Stage1",
+  type = "apeglm"
+)
+
+# Shrinkage for Stage3 vs Stage1 comparison
+res_S3_vs_S1_shrunk <- lfcShrink(
+  dds,
+  coef = "condition_Stage3_vs_Stage1",
+  type = "apeglm"
+)
+
+# Shrinkage for Stage3 vs Stage2 comparison
+res_S3_vs_S2_shrunk <- lfcShrink(
+  dds,
+  contrast = c("condition", "Stage3", "Stage2"),
+  type = "normal"
+)
+
+# Reusable function
+make_volcano <- function(res_object, plot_title) {
+  
+  res_df <- as.data.frame(res_object)
+  
+  # Remove NA padj
+  res_df <- res_df[!is.na(res_df$padj), ]
+  
+  # Add significance categories
+  res_df$significance <- "Not Significant"
+  
+  res_df$significance[
+    res_df$padj < 0.05 & res_df$log2FoldChange > 1
+  ] <- "Upregulated"
+  
+  res_df$significance[
+    res_df$padj < 0.05 & res_df$log2FoldChange < -1
+  ] <- "Downregulated"
+  
+  p <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj))) +
+    geom_point(aes(color = significance), alpha = 0.6, size = 1.5) +
+    scale_color_manual(values = c(
+      "Upregulated" = "red",
+      "Downregulated" = "blue",
+      "Not Significant" = "grey"
+    )) +
+    theme_minimal() +
+    labs(
+      title = plot_title,
+      x = "Log2 Fold Change",
+      y = "-Log10 Adjusted p-value"
+    ) +
+    theme(legend.title = element_blank())
+  
+  return(p)
+}
+
+# Generating volcano plots
+vol_S2_vs_S1 <- make_volcano(res_S2_vs_S1_shrunk,
+                             "Volcano Plot: Stage2 vs Stage1")
+
+vol_S3_vs_S1 <- make_volcano(res_S3_vs_S1_shrunk,
+                             "Volcano Plot: Stage3 vs Stage1")
+
+vol_S3_vs_S2 <- make_volcano(res_S3_vs_S2_shrunk,
+                             "Volcano Plot: Stage3 vs Stage2")
+
+ggsave("C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Volcano_stage2_vs_stage1.png",
+       plot = vol_S2_vs_S1,
+       width = 8,
+       height = 6,
+       dpi = 300)
+
+ggsave("C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Volcano_stage3_vs_stage1.png",
+       plot = vol_S3_vs_S1,
+       width = 8,
+       height = 6,
+       dpi = 300)
+
+ggsave("C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Volcano_stage3_vs_stage2.png",
+       plot = vol_S3_vs_S2,
+       width = 8,
+       height = 6,
+       dpi = 300)
+
+# Checking numbers
+sum(res_S2_vs_S1_shrunk$padj < 0.05, na.rm = TRUE)
+sum(res_S3_vs_S1_shrunk$padj < 0.05, na.rm = TRUE)
+sum(res_S3_vs_S2_shrunk$padj < 0.05, na.rm = TRUE)
+
+summary(res_S2_vs_S1_shrunk$log2FoldChange)
+
+```
+
+
+```{r}
+# Heatmaps
+
+
+# Variance-stabilized transformation 
+vsd <- vst(dds, blind = FALSE)
+
+# Creating column annotation (condition + sample ID)
+annotation_col <- data.frame(
+  condition = samples$condition,
+  sample = samples$sample
+)
+rownames(annotation_col) <- colnames(assay(vsd))
+
+
+annotation_colors <- list(
+  condition = c(
+    Stage1 = "#E78AC3",
+    Stage2 = "#4DAF4A",
+    Stage3 = "#A6D854"
+  ),
+  sample = setNames(
+    grDevices::rainbow(length(unique(samples$sample))),
+    unique(samples$sample)
+  )
+)
+
+# Reusable function
+make_heatmap <- function(res_object, title, filename) {
+  
+  # Order genes by adjusted p-value
+  res_ordered <- res_object[order(res_object$padj), ]
+  
+  # Top 20 genes
+  top_genes <- rownames(res_ordered)[1:20]
+  
+  # Extract VST expression matrix
+  mat <- assay(vsd)[top_genes, ]
+  
+  # Z-score scale by gene 
+  mat_scaled <- t(scale(t(mat)))
+  
+  # Generate heatmap
+  pheatmap(
+    mat_scaled,
+    annotation_col = annotation_col,
+    annotation_colors = annotation_colors,
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    clustering_distance_rows = "correlation",
+    clustering_distance_cols = "correlation",
+    show_rownames = TRUE,
+    show_colnames = FALSE,
+    fontsize_row = 8,
+    main = title,
+    filename = filename,
+    width = 8,
+    height = 10
+  )
+}
+
+make_heatmap(
+  res_S2_vs_S1_shrunk,
+  "Top 20 DE Genes: Stage2 vs Stage1",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Heatmap_stage2_vs_stage1.png"
+)
+
+make_heatmap(
+  res_S3_vs_S1_shrunk,
+  "Top 20 DE Genes: Stage3 vs Stage1",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Heatmap_stage3_vs_stage1.png"
+)
+
+make_heatmap(
+  res_S3_vs_S2_shrunk,
+  "Top 20 DE Genes: Stage3 vs Stage2",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Heatmap_stage3_vs_stage2.png"
+)
+
+```
+
+```{r}
+# MA Plots
+
+# Stage2 vs Stage1
+plotMA(
+  res_S2_vs_S1_shrunk,
+  ylim = c(-4, 4),
+  alpha = 0.05,
+  main = "MA Plot: Stage2 vs Stage1"
+)
+
+# Stage3 vs Stage1
+plotMA(
+  res_S3_vs_S1_shrunk,
+  ylim = c(-4, 4),
+  alpha = 0.05,
+  main = "MA Plot: Stage3 vs Stage1"
+)
+
+# Stage3 vs Stage2
+plotMA(
+  res_S3_vs_S2_shrunk,
+  ylim = c(-4, 4),
+  alpha = 0.05,
+  main = "MA Plot: Stage3 vs Stage2"
+)
+
+```
+```{r}
+# GO enrichement (ORA)
+
+# Define background universe (all tested genes)
+background_genes <- rownames(dds)
+
+# Reusable function 
+run_go_ora <- function(res_object, plot_title, filename) {
+  
+  # Converting results to data frame and remove NA padj
+  res_df <- as.data.frame(res_object)
+  res_df <- res_df[!is.na(res_df$padj), ]
+  
+  # Identifying significantly up- and downregulated genes
+  up_genes <- rownames(res_df[res_df$padj < 0.05 & res_df$log2FoldChange > 0, ])
+  down_genes <- rownames(res_df[res_df$padj < 0.05 & res_df$log2FoldChange < 0, ])
+  
+  # GO enrichment separate for up and down genes
+  ego_up <- enrichGO(
+    gene = up_genes,
+    universe = background_genes,
+    OrgDb = org.Sc.sgd.db,
+    keyType = "ORF",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05,
+    qvalueCutoff = 0.05
+  )
+  
+  ego_down <- enrichGO(
+    gene = down_genes,
+    universe = background_genes,
+    OrgDb = org.Sc.sgd.db,
+    keyType = "ORF",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05,
+    qvalueCutoff = 0.05
+  )
+  
+  # Converting enrichment results to data frames
+  ego_up_df <- as.data.frame(ego_up)
+  ego_up_df$Direction <- "Upregulated"
+  
+  ego_down_df <- as.data.frame(ego_down)
+  ego_down_df$Direction <- "Downregulated"
+  
+  # Combining results
+  combined_ego <- rbind(ego_up_df, ego_down_df)
+  
+  # Converting GeneRatio to numeric
+  combined_ego <- combined_ego %>%
+    mutate(
+      GeneRatio_numeric =
+        as.numeric(sub("/.*", "", GeneRatio)) /
+        as.numeric(sub(".*/", "", GeneRatio))
+    )
+  
+  # Selecting top 8 enriched terms per direction
+  plot_data <- combined_ego %>%
+    group_by(Direction) %>%
+    slice_min(p.adjust, n = 8)
+  
+  # Generating dot plot
+  p <- ggplot(plot_data,
+              aes(x = Direction,
+                  y = reorder(Description, p.adjust),
+                  size = GeneRatio_numeric,
+                  color = p.adjust)) +
+    geom_point() +
+    scale_color_gradient(low = "red", high = "blue") +
+    labs(title = plot_title, x = "", y = "") +
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(size = 9),
+      plot.title = element_text(hjust = 0.5)
+    )
+  
+  ggsave(
+    filename,
+    plot = p,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+}
+
+
+run_go_ora(
+  res_S2_vs_S1_shrunk,
+  "GO Biological Process: Stage2 vs Stage1",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/GO_Stage2_vs_Stage1_directional.png"
+)
+
+run_go_ora(
+  res_S3_vs_S1_shrunk,
+  "GO Biological Process: Stage3 vs Stage1",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/GO_Stage3_vs_Stage1_directional.png"
+)
+
+run_go_ora(
+  res_S3_vs_S2_shrunk,
+  "GO Biological Process: Stage3 vs Stage2",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/GO_Stage3_vs_Stage2_directional.png"
+)
+
+```
+
+```{r}
+# Likelihood Ratio Test
+
+# Performing LRT to identify genes varying across all stages
+dds_lrt <- DESeq(dds, test = "LRT", reduced = ~1)
+
+res_lrt <- results(dds_lrt)
+
+# Removing genes with NA adjusted p-values
+res_lrt_df <- as.data.frame(res_lrt)
+res_lrt_df <- res_lrt_df[!is.na(res_lrt_df$padj), ]
+
+# Selecting significant LRT genes (padj < 0.05)
+sig_lrt_genes <- rownames(res_lrt_df[res_lrt_df$padj < 0.05, ])
+length(sig_lrt_genes)
+
+#K-means clustering
+
+# Variance-stabilized expression for clustering
+vsd <- vst(dds, blind = FALSE)
+
+# Extracting expression matrix for significant genes
+mat <- assay(vsd)[sig_lrt_genes, ]
+
+# Z-score scale by gene (row-wise)
+mat_scaled <- t(scale(t(mat)))
+
+# Performing k-means clustering
+set.seed(123)
+k <- 4
+km <- kmeans(mat_scaled, centers = k)
+
+cluster_df <- data.frame(
+  gene = rownames(mat_scaled),
+  cluster = km$cluster
+)
+
+# Record cluster sizes
+cluster_sizes <- table(cluster_df$cluster)
+cluster_sizes
+
+# Per cluster
+
+background_genes <- rownames(dds)
+
+cluster_GO_list <- lapply(1:k, function(i) {
+  
+  genes_in_cluster <- cluster_df$gene[cluster_df$cluster == i]
+  
+  enrichGO(
+    gene = genes_in_cluster,
+    universe = background_genes,
+    OrgDb = org.Sc.sgd.db,
+    keyType = "ORF",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05,
+    qvalueCutoff = 0.05
+  )
+})
+
+names(cluster_GO_list) <- paste0("Cluster_", 1:k)
+
+# Individual cluster plots
+
+for (i in 1:k) {
+  
+  p <- dotplot(
+    cluster_GO_list[[i]],
+    showCategory = 15,
+    title = paste0("GO Biological Process: Cluster ", i)
+  )
+  
+  ggsave(
+    paste0("C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/GO_Cluster_", i, ".png"),
+    plot = p,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+}
+
+
+# Combined GO Plot (compareCluster)
+
+# Creating named list of genes per cluster
+gene_clusters <- split(cluster_df$gene, cluster_df$cluster)
+
+# Running GO enrichment across clusters
+ego_clusters <- compareCluster(
+  geneCluster = gene_clusters,
+  fun = "enrichGO",
+  universe = background_genes,
+  OrgDb = org.Sc.sgd.db,
+  keyType = "ORF",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05
+)
+
+# Combined dotplot
+cluster_GO_plot <- dotplot(
+  ego_clusters,
+  showCategory = 4
+) +
+  scale_x_discrete(
+    labels = paste0(
+      names(cluster_sizes),
+      " (n=", cluster_sizes, ")"
+    )
+  ) +
+  ggtitle("GO Biological Process Enrichment Across LRT Clusters") +
+  theme(
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+ggsave(
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/GO_Clusters_Combined.png",
+  plot = cluster_GO_plot,
+  width = 10,
+  height = 7,
+  dpi = 300
+)
+
+# Checking number
+table(cluster_assignments)
+
+
+```
+
+```{r}
+#KEGG
+
+# Reusable function f
+run_kegg_ora <- function(res_object, plot_title, filename) {
+  
+  # Converting results to data frame and remove NA padj
+  res_df <- as.data.frame(res_object)
+  res_df <- res_df[!is.na(res_df$padj), ]
+  
+  # Identifying significantly up- and downregulated genes
+  up_genes <- rownames(res_df[res_df$padj < 0.05 & res_df$log2FoldChange > 0, ])
+  down_genes <- rownames(res_df[res_df$padj < 0.05 & res_df$log2FoldChange < 0, ])
+  
+  # Performing KEGG enrichment separately for up and down genes
+  kegg_up <- enrichKEGG(
+    gene = up_genes,
+    organism = "sce",
+    keyType = "kegg",
+    pvalueCutoff = 0.05
+  )
+  
+  kegg_down <- enrichKEGG(
+    gene = down_genes,
+    organism = "sce",
+    keyType = "kegg",
+    pvalueCutoff = 0.05
+  )
+  
+  # Converting results to data frames
+  kegg_up_df <- as.data.frame(kegg_up)
+  kegg_up_df$Direction <- "Upregulated"
+  
+  kegg_down_df <- as.data.frame(kegg_down)
+  kegg_down_df$Direction <- "Downregulated"
+  
+  # Combining results
+  combined_kegg <- rbind(kegg_up_df, kegg_down_df)
+  
+  # Selecting top 8 enriched pathways per direction
+  plot_data <- combined_kegg %>%
+    group_by(Direction) %>%
+    slice_min(p.adjust, n = 8)
+  
+  # Generating dot plot
+  p <- ggplot(plot_data,
+              aes(x = Direction,
+                  y = reorder(Description, p.adjust),
+                  size = Count,
+                  color = p.adjust)) +
+    geom_point() +
+    scale_color_gradient(low = "red", high = "blue") +
+    theme_minimal() +
+    labs(title = plot_title, x = "", y = "")
+  
+  ggsave(
+    filename,
+    plot = p,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+}
+
+run_kegg_ora(
+  res_S3_vs_S1_shrunk,
+  "KEGG Pathway Enrichment: Stage3 vs Stage1",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/KEGG_Stage3_vs_Stage1.png"
+)
+
+run_kegg_ora(
+  res_S2_vs_S1_shrunk,
+  "KEGG Pathway Enrichment: Stage2 vs Stage1",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/KEGG_Stage2_vs_Stage1.png"
+)
+
+run_kegg_ora(
+  res_S3_vs_S2_shrunk,
+  "KEGG Pathway Enrichment: Stage3 vs Stage2",
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/KEGG_Stage3_vs_Stage2.png"
+)
+
+```
+
+```{r}
+#KEGG GSEA
+
+# Reusable function 
+run_kegg_gsea <- function(res_object, comparison_label, base_filename) {
+  
+  # Creating ranked gene list (log2FC)
+  gene_list <- res_object$log2FoldChange
+  names(gene_list) <- rownames(res_object)
+  
+  # Removing NA values and sort decreasing
+  gene_list <- sort(na.omit(gene_list), decreasing = TRUE)
+  
+  # Running KEGG GSEA
+  gsea_res <- gseKEGG(
+    geneList = gene_list,
+    organism = "sce",
+    keyType = "kegg",
+    pvalueCutoff = 0.05
+  )
+  
+  # Dotplot of enriched pathways
+  gsea_dot <- dotplot(
+    gsea_res,
+    showCategory = 15,
+    title = paste("KEGG GSEA:", comparison_label)
+  )
+  
+  ggsave(
+    paste0("C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/",
+           base_filename, "_dotplot.png"),
+    plot = gsea_dot,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+  
+  # Enrichment curve for top pathway (geneSetID = 1)
+  gsea_curve <- gseaplot2(
+    gsea_res,
+    geneSetID = 1
+  )
+  
+  ggsave(
+    paste0("C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/",
+           base_filename, "_curve.png"),
+    plot = gsea_curve,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+  
+  return(gsea_res)
+}
+
+
+gsea_kegg_S3_S1 <- run_kegg_gsea(
+  res_S3_vs_S1_shrunk,
+  "Stage3 vs Stage1",
+  "GSEA_KEGG_stage3_vs_stage1"
+)
+
+gsea_kegg_S2_S1 <- run_kegg_gsea(
+  res_S2_vs_S1_shrunk,
+  "Stage2 vs Stage1",
+  "GSEA_KEGG_stage2_vs_stage1"
+)
+
+gsea_kegg_S3_S2 <- run_kegg_gsea(
+  res_S3_vs_S2_shrunk,
+  "Stage3 vs Stage2",
+  "GSEA_KEGG_stage3_vs_stage2"
+)
+
+# Checking numbers
+
+nrow(gsea_kegg_S2_S1@result[gsea_kegg_S2_S1@result$p.adjust < 0.05, ])
+nrow(gsea_kegg_S3_S1@result[gsea_kegg_S3_S1@result$p.adjust < 0.05, ])
+nrow(gsea_kegg_S3_S2@result[gsea_kegg_S3_S2@result$p.adjust < 0.05, ])
+
+head(gsea_kegg_S2_S1@result[, c("ID","Description","NES","p.adjust")], 5)
+
+head(gsea_kegg_S3_S1@result[, c("ID","Description","NES","p.adjust")], 5)
+
+head(gsea_kegg_S3_S2@result[, c("ID","Description","NES","p.adjust")], 5)
+```
+
+```{r}
+
+# gene expression clustering plot across developmental stages
+
+# from earlier
+res_lrt <- results(dds_lrt)
+
+# Removing genes with NA adjusted p-values
+res_lrt_clean <- res_lrt[!is.na(res_lrt$padj), ]
+
+# Selecting significantly stage-regulated genes (padj < 0.05)
+sig_genes <- rownames(res_lrt_clean[res_lrt_clean$padj < 0.05, ])
+length(sig_genes)
+
+# Variance-stabilized expression values
+vsd <- vst(dds, blind = FALSE)
+
+# Extracting expression matrix for significant genes
+mat <- assay(vsd)[sig_genes, ]
+
+# Z-score scale by gene (row-wise)
+mat_scaled <- t(scale(t(mat)))
+mat_scaled <- mat_scaled[complete.cases(mat_scaled), ]
+
+# K-means Clustering (k = 4)
+
+set.seed(123)
+k <- 4
+km <- kmeans(mat_scaled, centers = k)
+
+cluster_assignments <- km$cluster
+cluster_sizes <- table(cluster_assignments)
+
+# Converting matrix to data frame
+df <- as.data.frame(mat_scaled)
+df$gene <- rownames(df)
+df$cluster <- factor(cluster_assignments)
+
+
+# Reshaping data
+df_long <- df %>%
+  pivot_longer(
+    cols = colnames(mat_scaled),
+    names_to = "sample",
+    values_to = "zscore"
+  )
+
+# Adding sample metadata
+sample_info <- as.data.frame(colData(dds))
+sample_info$sample <- rownames(sample_info)
+
+df_long <- df_long %>%
+  left_join(sample_info, by = "sample")
+
+# Renaming stages 
+df_long$condition <- recode(df_long$condition,
+                            "Stage1" = "Early_biofilm",
+                            "Stage2" = "Thin_biofilm",
+                            "Stage3" = "Mature_biofilm")
+
+df_long$condition <- factor(df_long$condition,
+                            levels = c("Early_biofilm",
+                                       "Thin_biofilm",
+                                       "Mature_biofilm"))
+
+
+# Average replicates per stage
+df_avg <- df_long %>%
+  group_by(gene, cluster, condition) %>%
+  summarise(zscore = mean(zscore), .groups = "drop")
+
+# Relabeling clusters with gene counts
+df_avg$cluster <- factor(
+  df_avg$cluster,
+  levels = 1:k,
+  labels = paste0(
+    "Group ", 1:k,
+    " (n=", cluster_sizes, ")"
+  )
+)
+
+# Plotting
+cluster_plot <- ggplot(df_avg, aes(x = condition, y = zscore)) +
+  
+  # Boxplot summarizing cluster distribution
+  geom_boxplot(
+    aes(color = "Cluster"),
+    outlier.shape = NA,
+    fill = NA
+  ) +
+  
+  # Individual gene trajectories
+  geom_line(
+    aes(group = gene),
+    alpha = 0.05,
+    color = "red"
+  ) +
+  
+  # Mean expression trend per cluster
+  stat_summary(
+    aes(group = 1),
+    fun = mean,
+    geom = "line",
+    size = 1.5,
+    color = "darkred"
+  ) +
+  
+  scale_color_manual(
+    name = "",
+    values = c("Cluster" = "red")
+  ) +
+  
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(
+    title = "Gene Expression Clusters Across Biofilm Development",
+    x = "",
+    y = "Z-score of Gene Expression"
+  )
+
+ggsave(
+  "C:/Users/sharo/OneDrive/BINF 6110/Assignment_02/Bulk-Transcriptomics-Assignment2-main/Bulk-Transcriptomics-Assignment2-main/figures/Gene_Expression_Clusters.png",
+  plot = cluster_plot,
+  width = 10,
+  height = 7, 
+  dpi = 300
+)
+
+```
+
